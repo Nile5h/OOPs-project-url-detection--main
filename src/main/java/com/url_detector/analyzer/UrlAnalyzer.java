@@ -7,17 +7,13 @@ import com.url_detector.model.ParsedUrl;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Orchestrates all {@link UrlChecker} implementations.
- * Runs each checker, accumulates scores and flags, and returns a
- * {@link DetectionResult}.
- */
 public class UrlAnalyzer {
 
     private final List<UrlChecker> checkers;
 
     public UrlAnalyzer() {
         this.checkers = List.of(
+            new PhishingDataChecker(),
             new CsvMaliciousListChecker(),
             new StructureChecker(),
             new DomainChecker(),

@@ -1,21 +1,11 @@
 package com.url_detector.util;
 
-/**
- * Utility class that computes the Levenshtein (edit) distance between two strings.
- */
 public final class LevenshteinUtil {
 
     private LevenshteinUtil() {
         // utility class — no instances
     }
 
-    /**
-     * Computes the minimum edit distance (insertions, deletions, substitutions)
-     * between strings {@code a} and {@code b}.
-     *
-     * Time:  O(m * n)
-     * Space: O(n)   — two-row rolling array
-     */
     public static int computeDistance(String a, String b) {
         if (a == null) a = "";
         if (b == null) b = "";

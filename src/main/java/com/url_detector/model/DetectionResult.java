@@ -4,9 +4,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * The complete result of analyzing a single URL.
- */
 public class DetectionResult {
 
     private final ParsedUrl parsedUrl;

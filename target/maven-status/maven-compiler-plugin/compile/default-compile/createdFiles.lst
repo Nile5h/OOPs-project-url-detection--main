@@ -11,8 +11,10 @@ com\url_detector\db\DatabaseManager.class
 com\url_detector\analyzer\UrlAnalyzer.class
 com\url_detector\checker\BlacklistChecker.class
 com\url_detector\checker\CheckResult.class
+com\url_detector\checker\PhishingDataChecker$Model.class
 com\url_detector\web\WebServer$StaticHandler.class
 com\url_detector\checker\StructureChecker.class
+com\url_detector\checker\PhishingDataChecker.class
 com\url_detector\db\ScanHistoryRepository.class
 com\url_detector\checker\CsvSafeListChecker.class
 com\url_detector\util\LevenshteinUtil.class

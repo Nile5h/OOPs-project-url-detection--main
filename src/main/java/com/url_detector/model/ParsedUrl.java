@@ -2,16 +2,13 @@ package com.url_detector.model;
 
 import java.util.List;
 
-/**
- * Represents a parsed URL broken into its structural components.
- */
 public class ParsedUrl {
 
     private final String rawUrl;
     private final String scheme;       // e.g. "https"
     private final String host;         // full host including subdomains
-    private final String registrableDomain; // e.g. "paypal.com" stripped of subdomains
-    private final String tld;          // e.g. "com"
+    private final String registrableDomain;
+    private final String tld;         
     private final List<String> subdomains; // labels before registrable domain
     private final String path;
     private final String query;
