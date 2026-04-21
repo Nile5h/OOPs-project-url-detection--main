@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sentinel URL Intelligence</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+</head>
+<body>
+  <div class="bg-orb orb-a"></div>
+  <div class="bg-orb orb-b"></div>
+
+  <header class="shell hero reveal">
+    <div>
+      <p class="eyebrow">Threat Surface Console</p>
+      <h1>Sentinel URL Intelligence</h1>
+      <p class="subtitle">Analyze suspicious links in seconds with risk scoring, signal breakdown, and historical traceability.</p>
+    </div>
+    <div class="hero-actions">
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode">Dark mode</button>
+      <div class="status-pill" id="healthStatus">Checking API...</div>
+    </div>
+  </header>
+
+  <main class="shell layout">
+    <section class="card reveal" style="--delay: 120ms">
+      <h2>Analyze URL</h2>
+      <form id="analyzeForm">
+        <label for="urlInput">Target URL</label>
+        <div class="input-row">
+          <input id="urlInput" name="url" type="url" placeholder="https://example.com/login" required />
+          <button type="submit">Scan Now</button>
+        </div>
+      </form>
+
+      <div id="resultPanel" class="result hidden">
+        <div class="result-head">
+          <span id="riskBadge" class="risk-badge">SAFE</span>
+          <span id="scoreText" class="mono">Score: 0</span>
+        </div>
+        <ul id="flagsList"></ul>
+      </div>
+      <p id="errorText" class="error hidden"></p>
+    </section>
+
+    <section class="card reveal" style="--delay: 220ms">
+      <div class="section-head">
+        <h2>Scan History</h2>
+        <div class="history-controls">
+          <select id="riskFilter" aria-label="Risk filter">
+            <option value="ALL">All</option>
+            <option value="SAFE">Safe</option>
+            <option value="LOW">Low</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HIGH">High</option>
+            <option value="CRITICAL">Critical</option>
+          </select>
+          <button id="refreshHistory" type="button" class="ghost">Refresh</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>URL</th>
+              <th>Risk</th>
+              <th>Score</th>
+              <th>Signals</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr><td colspan="5" class="empty">No scans yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/assets/app.js"></script>
+
+  <footer class="shell">
+    Created by Nilesh Choudhary
+  </footer>
+</body>
+</html>
