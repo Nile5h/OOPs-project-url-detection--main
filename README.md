@@ -23,9 +23,9 @@ A Java web application that analyzes URLs for phishing, malware, and other suspi
 
 - Professional web dashboard with URL analysis and live scan history
 - Frontend assets are fully local (no external CSS/font CDN dependency)
-- Seven independent checkers that each contribute a score
+- Nine independent checkers that each contribute a score
 - SQLite-backed scan history with filtering by risk level
-- Offline — no internet connection required
+- Live redirect-chain checks with hop limits, loop detection, and private-target blocking
 - Fat JAR output (all dependencies bundled)
 
 ---
@@ -88,7 +88,9 @@ The application creates `url_detector.db` in the working directory on first laun
     │   │   ├── CsvMaliciousListChecker.java ← Checks against malicious_phish.csv
     │   │   ├── CsvSafeListChecker.java      ← Allowlist from safe_sites_df.csv
     │   │   ├── DomainChecker.java           ← TLD, subdomain, brand impersonation
+    │   │   ├── HttpRedirectChecker.java     ← Live HTTP redirect-chain analysis
     │   │   ├── KeywordChecker.java          ← Phishing keyword scan
+    │   │   ├── PhishingDataChecker.java     ← Naive-Bayes signal from PhishingData.csv
     │   │   ├── StructureChecker.java        ← URL structure anomalies
     │   │   └── TyposquatChecker.java        ← Levenshtein distance vs popular domains
     │   ├── db/
@@ -105,6 +107,7 @@ The application creates `url_detector.db` in the working directory on first laun
     │   │   └── UrlDetectionService.java     ← Core service used by API handlers
     │   └── util/
     │       ├── LevenshteinUtil.java         ← Edit-distance algorithm
+    │       ├── RedirectProbeUtil.java       ← Safe bounded redirect probe utility
     │       └── UrlNormalizationUtil.java    ← URL/host key normalization
     └── resources/
         └── static/
@@ -116,6 +119,7 @@ The application creates `url_detector.db` in the working directory on first laun
         ├── malicious_phish.csv              ← Phishing/malware URL dataset
         ├── popular_domains.txt              ← Top domains for typosquat comparison
         └── safe_sites_df.csv                ← Allowlisted safe domains
+    └── PhishingData.csv                         ← Feature dataset used by PhishingDataChecker
 ```
 
 ---
@@ -132,7 +136,7 @@ The application entry point. Starts the embedded HTTP server and serves the web 
 ### `analyzer/`
 
 **`UrlAnalyzer.java`**
-The core orchestrator. Holds a fixed list of all seven `UrlChecker` implementations and runs each one against a `ParsedUrl`. Accumulates scores and flag messages, floors the total at 0 (so allowlist deductions never produce a negative score), and returns a `DetectionResult`.
+The core orchestrator. Holds a fixed list of all `UrlChecker` implementations and runs each one against a `ParsedUrl`. Accumulates scores and flag messages, floors the total at 0 (so allowlist deductions never produce a negative score), and returns a `DetectionResult`.
 
 ---
 
@@ -166,8 +170,14 @@ Checks three things:
 - More than 2 subdomains → **+15**
 - A known brand name (PayPal, Amazon, Google, etc.) appears as a subdomain label → **+35** per brand found
 
+**`HttpRedirectChecker.java`**
+Performs live redirect-chain analysis using a bounded probe. Flags suspicious redirect behavior such as cross-domain hops, long redirect chains, loops/bounce-back patterns, and redirects to local/private targets.
+
 **`KeywordChecker.java`**
 Scans the full raw URL string for ~40 phishing-related keywords (`login`, `verify`, `password`, `bitcoin`, `suspended`, etc.). Scores **+10 per keyword**, capped at **+30** total.
+
+**`PhishingDataChecker.java`**
+Loads `PhishingData.csv` and trains a lightweight Naive-Bayes model over URL-derivable features (IP host, URL length band, shortener usage, `@`, double-slash redirect pattern, hyphenated host, subdomain depth, port anomalies, and `https` token in host). Adds or subtracts score based on predicted phishing probability.
 
 **`StructureChecker.java`**
 Detects structural anomalies:
@@ -263,6 +273,9 @@ Embedded HTTP server that:
 **`LevenshteinUtil.java`**
 Utility class (no instances) that computes the Levenshtein edit distance between two strings using a space-optimized two-row rolling array. Time complexity O(m×n), space O(n). Used exclusively by `TyposquatChecker`.
 
+**`RedirectProbeUtil.java`**
+Utility class (no instances) used by `HttpRedirectChecker` to perform safe redirect probing with manual redirect handling, hop limit, timeout budget, loop detection, and local/private-target blocking.
+
 **`UrlNormalizationUtil.java`**
 Utility class (no instances) with three static helpers:
 - `normalizeHost(String)` — lowercases and strips leading `www.`
@@ -279,8 +292,10 @@ Utility class (no instances) with three static helpers:
 | `malicious_phish.csv` | Two-column CSV (`url,type`). Rows with type `benign` are ignored. Phishing/malware rows populate the malicious URL and host sets. |
 | `popular_domains.txt` | One domain per line. Used by `TyposquatChecker` for edit-distance comparison. |
 | `safe_sites_df.csv` | Two-column CSV (`domain,category`). Matched domains receive a negative score adjustment to reduce false positives. |
+| `PhishingData.csv` | UCI-style feature dataset used by `PhishingDataChecker` for Naive-Bayes phishing likelihood scoring. |
 
-All resource files are bundled inside the JAR under the classpath root and loaded via `getClass().getResourceAsStream(...)`.
+Files under `src/main/resources` are bundled inside the JAR under the classpath root and loaded via `getClass().getResourceAsStream(...)`.
+`PhishingData.csv` is also supported from the project root as a runtime fallback.
 
 ---
 

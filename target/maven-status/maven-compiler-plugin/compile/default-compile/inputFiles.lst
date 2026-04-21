@@ -5,6 +5,7 @@ C:\Users\ok\Documents\OOPs-project-url-detection--main\src\main\java\com\url_det
 C:\Users\ok\Documents\OOPs-project-url-detection--main\src\main\java\com\url_detector\checker\CsvMaliciousListChecker.java
 C:\Users\ok\Documents\OOPs-project-url-detection--main\src\main\java\com\url_detector\checker\CsvSafeListChecker.java
 C:\Users\ok\Documents\OOPs-project-url-detection--main\src\main\java\com\url_detector\checker\DomainChecker.java
+C:\Users\ok\Documents\OOPs-project-url-detection--main\src\main\java\com\url_detector\checker\HttpRedirectChecker.java
 C:\Users\ok\Documents\OOPs-project-url-detection--main\src\main\java\com\url_detector\checker\KeywordChecker.java
 C:\Users\ok\Documents\OOPs-project-url-detection--main\src\main\java\com\url_detector\checker\PhishingDataChecker.java
 C:\Users\ok\Documents\OOPs-project-url-detection--main\src\main\java\com\url_detector\checker\StructureChecker.java
@@ -20,5 +21,6 @@ C:\Users\ok\Documents\OOPs-project-url-detection--main\src\main\java\com\url_det
 C:\Users\ok\Documents\OOPs-project-url-detection--main\src\main\java\com\url_detector\parser\UrlParser.java
 C:\Users\ok\Documents\OOPs-project-url-detection--main\src\main\java\com\url_detector\service\UrlDetectionService.java
 C:\Users\ok\Documents\OOPs-project-url-detection--main\src\main\java\com\url_detector\util\LevenshteinUtil.java
+C:\Users\ok\Documents\OOPs-project-url-detection--main\src\main\java\com\url_detector\util\RedirectProbeUtil.java
 C:\Users\ok\Documents\OOPs-project-url-detection--main\src\main\java\com\url_detector\util\UrlNormalizationUtil.java
 C:\Users\ok\Documents\OOPs-project-url-detection--main\src\main\java\com\url_detector\web\WebServer.java

@@ -14,6 +14,8 @@ com\url_detector\checker\CheckResult.class
 com\url_detector\checker\PhishingDataChecker$Model.class
 com\url_detector\web\WebServer$StaticHandler.class
 com\url_detector\checker\StructureChecker.class
+com\url_detector\util\RedirectProbeUtil.class
+com\url_detector\checker\HttpRedirectChecker.class
 com\url_detector\checker\PhishingDataChecker.class
 com\url_detector\db\ScanHistoryRepository.class
 com\url_detector\checker\CsvSafeListChecker.class
@@ -22,6 +24,7 @@ com\url_detector\parser\UrlParser.class
 com\url_detector\checker\KeywordChecker.class
 com\url_detector\checker\TyposquatChecker.class
 com\url_detector\checker\UrlChecker.class
+com\url_detector\util\RedirectProbeUtil$RedirectProbeResult.class
 com\url_detector\web\WebServer.class
 com\url_detector\model\ParsedUrl.class
 com\url_detector\checker\CsvMaliciousListChecker.class
