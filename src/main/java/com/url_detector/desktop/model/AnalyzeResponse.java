@@ -3,39 +3,41 @@ package com.url_detector.desktop.model;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Response model for the analyze URL API endpoint.
- */
 public class AnalyzeResponse {
-    public String url;
-    public String risk;
-    public int score;
-    public List<String> flags;
-    public long timestamp;
+    private String url;
+    private int score;
+    private String riskLevel;
+    private List<String> flags = new ArrayList<>();
 
-    public AnalyzeResponse() {
-        this.flags = new ArrayList<>();
+    public String getUrl() {
+        return url;
     }
 
-    public AnalyzeResponse(String url, String risk, int score, List<String> flags, long timestamp) {
+    public void setUrl(String url) {
         this.url = url;
-        this.risk = risk;
-        this.score = score;
-        this.flags = flags != null ? flags : new ArrayList<>();
-        this.timestamp = timestamp;
     }
 
-    /**
-     * Get color for risk level in hex format.
-     */
-    public String getRiskColor() {
-        return switch (risk.toLowerCase()) {
-            case "critical" -> "#b4232a";
-            case "high" -> "#d04b22";
-            case "medium" -> "#bf7a00";
-            case "low" -> "#2a8a37";
-            case "safe" -> "#1f7a4f";
-            default -> "#1259c3";
-        };
+    public int getScore() {
+        return score;
+    }
+
+    public void setScore(int score) {
+        this.score = score;
+    }
+
+    public String getRiskLevel() {
+        return riskLevel;
+    }
+
+    public void setRiskLevel(String riskLevel) {
+        this.riskLevel = riskLevel;
+    }
+
+    public List<String> getFlags() {
+        return flags;
+    }
+
+    public void setFlags(List<String> flags) {
+        this.flags = flags == null ? new ArrayList<>() : flags;
     }
 }

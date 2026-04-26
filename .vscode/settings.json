@@ -23,5 +23,6 @@
             "askForPassword": true
         }
     ],
-    "sqltools.useNodeRuntime": true
+    "sqltools.useNodeRuntime": true,
+    "java.configuration.updateBuildConfiguration": "interactive"
 }

@@ -1,21 +1,13 @@
 package com.url_detector.desktop.model;
 
-/**
- * Response model for the health check API endpoint.
- */
 public class HealthResponse {
-    public String status;
-    public long timestamp;
+    private String status;
 
-    public HealthResponse() {
+    public String getStatus() {
+        return status;
     }
 
-    public HealthResponse(String status, long timestamp) {
+    public void setStatus(String status) {
         this.status = status;
-        this.timestamp = timestamp;
-    }
-
-    public boolean isHealthy() {
-        return "ok".equalsIgnoreCase(status);
     }
 }
