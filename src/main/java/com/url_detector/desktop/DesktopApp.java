@@ -74,6 +74,10 @@ public class DesktopApp extends Application {
     private Timeline healthTimeline;
     private String currentTheme = "light";
 
+    public static void main(String[] args) {
+        launch(args);
+    }
+
     @Override
     public void start(Stage primaryStage) {
         BorderPane root = new BorderPane();
@@ -345,8 +349,12 @@ public class DesktopApp extends Application {
         flagsCol.setCellValueFactory(new PropertyValueFactory<>("flagsText"));
         flagsCol.setPrefWidth(340);
 
-        table.getColumns().addAll(timeCol, urlCol, riskCol, scoreCol, flagsCol);
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        table.getColumns().add(timeCol);
+        table.getColumns().add(urlCol);
+        table.getColumns().add(riskCol);
+        table.getColumns().add(scoreCol);
+        table.getColumns().add(flagsCol);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setMinHeight(280);
 
         panel.getChildren().addAll(title, controls, table);
