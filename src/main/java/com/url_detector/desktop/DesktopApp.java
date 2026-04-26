@@ -16,13 +16,22 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
@@ -70,9 +79,14 @@ public class DesktopApp extends Application {
     private final ScrollPane scrollPane = new ScrollPane();
     private final VBox content = new VBox(24);
     private final Map<String, Region> sections = new LinkedHashMap<>();
+    private final Map<String, Button> navButtons = new LinkedHashMap<>();
+
+    private final Button copyResultButton = new Button("Copy Result");
+    private final Button copyFlagsButton = new Button("Copy Flags");
 
     private Timeline healthTimeline;
     private String currentTheme = "light";
+    private String latestAnalyzedUrl = "";
 
     public static void main(String[] args) {
         launch(args);
@@ -102,6 +116,8 @@ public class DesktopApp extends Application {
             scene.getStylesheets().add(css);
         }
 
+        configureShortcuts(scene);
+
         loadThemePreference();
         applyTheme(root);
         themeToggle.setOnAction(evt -> {
@@ -115,6 +131,8 @@ public class DesktopApp extends Application {
         primaryStage.setMinHeight(650);
         primaryStage.setScene(scene);
         primaryStage.show();
+
+        setActiveNav("overview");
 
         startHealthPolling();
         loadHistory();
@@ -158,9 +176,11 @@ public class DesktopApp extends Application {
     private Button navButton(String text, String sectionId) {
         Button button = new Button(text);
         button.getStyleClass().add("nav-link");
+        navButtons.put(sectionId, button);
         button.setOnAction(evt -> {
             Region target = sections.get(sectionId);
             if (target != null) {
+                setActiveNav(sectionId);
                 scrollTo(target);
             }
         });
@@ -185,6 +205,7 @@ public class DesktopApp extends Application {
 
         scrollPane.setFitToWidth(true);
         scrollPane.setContent(content);
+        scrollPane.vvalueProperty().addListener((obs, oldValue, newValue) -> updateActiveSectionFromScroll());
     }
 
     private Region buildOverviewSection() {
@@ -287,8 +308,15 @@ public class DesktopApp extends Application {
 
         scanButton.getStyleClass().add("btn-primary");
         scanButton.setOnAction(evt -> analyzeUrl());
+        scanButton.setTooltip(new Tooltip("Ctrl+Enter"));
+
+        urlInput.setOnAction(evt -> analyzeUrl());
+        urlInput.setTooltip(new Tooltip("Ctrl+L to focus"));
 
         HBox row = new HBox(10, urlInput, scanButton);
+
+        Label shortcutHint = new Label("Shortcuts: Ctrl+Enter to scan, Ctrl+L to focus URL");
+        shortcutHint.getStyleClass().add("shortcut-hint");
 
         errorLabel.getStyleClass().add("error-text");
         errorLabel.setVisible(false);
@@ -298,9 +326,18 @@ public class DesktopApp extends Application {
         resultPanel.getStyleClass().add("result-panel");
         riskBadge.getStyleClass().add("risk-badge");
         flagsView.setPlaceholder(new Label("No suspicious signals detected."));
-        resultPanel.getChildren().addAll(riskBadge, scoreLabel, flagsView);
 
-        panel.getChildren().addAll(title, row, errorLabel, resultPanel);
+        copyResultButton.getStyleClass().add("btn-secondary");
+        copyFlagsButton.getStyleClass().add("btn-secondary");
+        copyResultButton.setDisable(true);
+        copyFlagsButton.setDisable(true);
+        copyResultButton.setOnAction(evt -> copyResultSummary());
+        copyFlagsButton.setOnAction(evt -> copyFlags());
+
+        HBox resultActions = new HBox(10, copyResultButton, copyFlagsButton);
+        resultPanel.getChildren().addAll(riskBadge, scoreLabel, flagsView, resultActions);
+
+        panel.getChildren().addAll(title, row, shortcutHint, errorLabel, resultPanel);
         return panel;
     }
 
@@ -328,6 +365,32 @@ public class DesktopApp extends Application {
 
         TableView<HistoryRecord> table = new TableView<>(historyItems);
         table.setPlaceholder(new Label("No scans yet."));
+        table.setRowFactory(tv -> {
+            TableRow<HistoryRecord> row = new TableRow<>();
+            MenuItem copyUrl = new MenuItem("Copy URL");
+            copyUrl.setOnAction(evt -> {
+                HistoryRecord record = row.getItem();
+                if (record != null) {
+                    copyToClipboard(record.getUrl());
+                }
+            });
+
+            MenuItem copyRow = new MenuItem("Copy Row Summary");
+            copyRow.setOnAction(evt -> {
+                HistoryRecord record = row.getItem();
+                if (record != null) {
+                    copyToClipboard("Time: " + safe(record.getScannedAt())
+                        + " | Risk: " + safe(record.getRiskLevel())
+                        + " | Score: " + record.getScore()
+                        + " | URL: " + safe(record.getUrl())
+                        + " | Flags: " + safe(record.getFlagsText()));
+                }
+            });
+
+            ContextMenu menu = new ContextMenu(copyUrl, copyRow);
+            row.emptyProperty().addListener((obs, wasEmpty, isNowEmpty) -> row.setContextMenu(isNowEmpty ? null : menu));
+            return row;
+        });
 
         TableColumn<HistoryRecord, String> timeCol = new TableColumn<>("Time");
         timeCol.setCellValueFactory(new PropertyValueFactory<>("scannedAt"));
@@ -393,6 +456,7 @@ public class DesktopApp extends Application {
     private void updateResult(AnalyzeResponse response) {
         clearRiskClasses();
         String risk = response.getRiskLevel() == null ? "UNKNOWN" : response.getRiskLevel();
+        latestAnalyzedUrl = response.getUrl() == null || response.getUrl().isBlank() ? urlInput.getText() : response.getUrl();
         riskBadge.setText(risk);
         riskBadge.getStyleClass().add("risk-" + risk.toLowerCase());
         scoreLabel.setText("Score: " + response.getScore());
@@ -403,6 +467,9 @@ public class DesktopApp extends Application {
         } else {
             flagsView.setItems(FXCollections.observableArrayList(flags));
         }
+
+        copyResultButton.setDisable(false);
+        copyFlagsButton.setDisable(false);
     }
 
     private void loadHistory() {
@@ -481,6 +548,82 @@ public class DesktopApp extends Application {
             new KeyFrame(Duration.millis(260), new KeyValue(scrollPane.vvalueProperty(), v))
         );
         smooth.play();
+    }
+
+    private void updateActiveSectionFromScroll() {
+        if (sections.isEmpty()) {
+            return;
+        }
+
+        double contentHeight = content.getBoundsInLocal().getHeight();
+        double viewportHeight = scrollPane.getViewportBounds().getHeight();
+        double offsetY = scrollPane.getVvalue() * Math.max(contentHeight - viewportHeight, 0);
+        double middleY = offsetY + (viewportHeight * 0.35);
+
+        String winner = "overview";
+        double nearest = Double.MAX_VALUE;
+
+        for (Map.Entry<String, Region> entry : sections.entrySet()) {
+            double sectionY = entry.getValue().getBoundsInParent().getMinY();
+            double distance = Math.abs(sectionY - middleY);
+            if (distance < nearest) {
+                nearest = distance;
+                winner = entry.getKey();
+            }
+        }
+
+        setActiveNav(winner);
+    }
+
+    private void setActiveNav(String sectionId) {
+        for (Map.Entry<String, Button> entry : navButtons.entrySet()) {
+            Button button = entry.getValue();
+            button.getStyleClass().remove("nav-link-active");
+            if (entry.getKey().equals(sectionId)) {
+                button.getStyleClass().add("nav-link-active");
+            }
+        }
+    }
+
+    private void configureShortcuts(Scene scene) {
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.ENTER, KeyCombination.CONTROL_DOWN),
+            this::analyzeUrl
+        );
+
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.L, KeyCombination.CONTROL_DOWN),
+            () -> Platform.runLater(() -> {
+                urlInput.requestFocus();
+                urlInput.selectAll();
+            })
+        );
+    }
+
+    private void copyResultSummary() {
+        String summary = "URL: " + safe(latestAnalyzedUrl)
+            + "\nRisk: " + riskBadge.getText()
+            + "\n" + scoreLabel.getText();
+        copyToClipboard(summary);
+    }
+
+    private void copyFlags() {
+        List<String> items = flagsView.getItems();
+        if (items == null || items.isEmpty()) {
+            copyToClipboard("No suspicious signals detected.");
+            return;
+        }
+        copyToClipboard(String.join("\n", items));
+    }
+
+    private void copyToClipboard(String text) {
+        ClipboardContent clipboardContent = new ClipboardContent();
+        clipboardContent.putString(safe(text));
+        Clipboard.getSystemClipboard().setContent(clipboardContent);
+    }
+
+    private static String safe(String value) {
+        return value == null ? "" : value;
     }
 
     private void showError(String message) {
