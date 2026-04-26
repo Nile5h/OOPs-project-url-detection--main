@@ -1,0 +1,27 @@
+{
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "driver": "SQLite",
+            "database": "${workspaceFolder:OOPs-project-url-detection--main-main}/url_detector.db",
+            "name": "oops url data",
+            "group": "project"
+        },
+        {
+            "mysqlOptions": {
+                "authProtocol": "default",
+                "enableSsl": "Disabled"
+            },
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 3306,
+            "driver": "MySQL",
+            "username": "root",
+            "database": "MySQL",
+            "name": "SQL workbench",
+            "askForPassword": true
+        }
+    ],
+    "sqltools.useNodeRuntime": true
+}
