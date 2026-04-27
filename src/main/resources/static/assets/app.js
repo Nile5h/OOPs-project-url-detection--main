@@ -7,9 +7,13 @@ const flagsList = document.getElementById("flagsList");
 const errorText = document.getElementById("errorText");
 const historyBody = document.getElementById("historyBody");
 const refreshHistoryBtn = document.getElementById("refreshHistory");
+const clearHistoryBtn = document.getElementById("clearHistory");
 const riskFilter = document.getElementById("riskFilter");
 const healthStatus = document.getElementById("healthStatus");
 const themeToggle = document.getElementById("themeToggle");
+const navLinks = Array.from(document.querySelectorAll(".nav-link"));
+const revealTargets = Array.from(document.querySelectorAll(".reveal"));
+const sectionTargets = Array.from(document.querySelectorAll("main section[id]"));
 
 const THEME_KEY = "sentinel-theme";
 
@@ -31,6 +35,75 @@ function initializeTheme() {
 
   const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
   applyTheme(prefersDark ? "dark" : "light");
+}
+
+function setActiveNavByHash(hash) {
+  for (const link of navLinks) {
+    const isActive = link.getAttribute("href") === hash;
+    link.classList.toggle("active", isActive);
+  }
+}
+
+function initializeNavBehavior() {
+  for (const link of navLinks) {
+    link.addEventListener("click", () => {
+      const href = link.getAttribute("href");
+      if (href && href.startsWith("#")) {
+        setActiveNavByHash(href);
+      }
+    });
+  }
+
+  if (!sectionTargets.length || !navLinks.length) {
+    return;
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    const visible = entries
+      .filter((entry) => entry.isIntersecting)
+      .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+
+    if (!visible || !visible.target || !visible.target.id) {
+      return;
+    }
+
+    setActiveNavByHash(`#${visible.target.id}`);
+  }, {
+    threshold: [0.3, 0.55, 0.85],
+    rootMargin: "-20% 0px -35% 0px"
+  });
+
+  for (const section of sectionTargets) {
+    observer.observe(section);
+  }
+
+  if (window.location.hash) {
+    setActiveNavByHash(window.location.hash);
+  } else {
+    setActiveNavByHash("#overview");
+  }
+}
+
+function initializeRevealAnimation() {
+  if (!revealTargets.length) {
+    return;
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add("visible");
+        observer.unobserve(entry.target);
+      }
+    }
+  }, {
+    threshold: 0.16,
+    rootMargin: "0px 0px -8% 0px"
+  });
+
+  for (const target of revealTargets) {
+    observer.observe(target);
+  }
 }
 
 function riskClass(level) {
@@ -119,6 +192,24 @@ async function loadHistory() {
   }
 }
 
+async function clearHistory() {
+  clearError();
+  if (!window.confirm("Clear all scan history? This cannot be undone.")) {
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/history", { method: "DELETE" });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Unable to clear history");
+    }
+    await loadHistory();
+  } catch (err) {
+    showError(err.message || "Unable to clear history");
+  }
+}
+
 analyzeForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   clearError();
@@ -149,6 +240,7 @@ analyzeForm.addEventListener("submit", async (event) => {
 });
 
 refreshHistoryBtn.addEventListener("click", loadHistory);
+clearHistoryBtn.addEventListener("click", clearHistory);
 riskFilter.addEventListener("change", loadHistory);
 themeToggle.addEventListener("click", () => {
   const next = currentTheme() === "dark" ? "light" : "dark";
@@ -157,5 +249,7 @@ themeToggle.addEventListener("click", () => {
 });
 
 initializeTheme();
+initializeNavBehavior();
+initializeRevealAnimation();
 checkHealth();
 loadHistory();

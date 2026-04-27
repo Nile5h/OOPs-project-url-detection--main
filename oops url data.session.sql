@@ -1,0 +1,1 @@
+SELECT * FROM scan_history;

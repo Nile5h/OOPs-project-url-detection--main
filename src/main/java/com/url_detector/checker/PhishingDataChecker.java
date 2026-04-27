@@ -22,8 +22,10 @@ import java.util.Set;
  */
 public class PhishingDataChecker implements UrlChecker {
 
-    private static final String RESOURCE_PATH = "/PhishingData.csv";
-    private static final String FALLBACK_FILE = "PhishingData.csv";
+    private static final List<DatasetSource> DATASETS = List.of(
+        new DatasetSource("/PhishingData.csv", "PhishingData.csv"),
+        new DatasetSource("/PhisingData.csv", "PhisingData.csv")
+    );
 
     private static final String COL_IP = "having_iphaving_ip_address";
     private static final String COL_URL_LENGTH = "urlurl_length";
@@ -134,77 +136,89 @@ public class PhishingDataChecker implements UrlChecker {
     }
 
     private Model trainModel() {
-        try (BufferedReader reader = openDatasetReader()) {
-            if (reader == null) {
-                return Model.unavailable();
-            }
+        Model model = new Model(FEATURE_COLUMNS);
+        boolean loadedAny = false;
 
-            String header = reader.readLine();
-            if (header == null) {
-                return Model.unavailable();
-            }
-
-            String[] rawHeaders = header.split(",");
-            Map<String, Integer> indexByName = new HashMap<>();
-            for (int i = 0; i < rawHeaders.length; i++) {
-                indexByName.put(normalizeName(rawHeaders[i]), i);
-            }
-
-            for (String column : FEATURE_COLUMNS) {
-                if (!indexByName.containsKey(column)) {
-                    return Model.unavailable();
-                }
-            }
-            if (!indexByName.containsKey(COL_RESULT)) {
-                return Model.unavailable();
-            }
-
-            Model model = new Model(FEATURE_COLUMNS);
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String trimmed = line.trim();
-                if (trimmed.isEmpty()) {
+        for (DatasetSource source : DATASETS) {
+            try (BufferedReader reader = openDatasetReader(source)) {
+                if (reader == null) {
                     continue;
                 }
-
-                String[] cols = splitCsvLine(line, rawHeaders.length);
-                Integer result = parseInt(cols[indexByName.get(COL_RESULT)]);
-                if (result == null) {
-                    continue;
-                }
-
-                boolean phishing = result == -1;
-                Map<String, Integer> row = new HashMap<>();
-                boolean valid = true;
-                for (String feature : FEATURE_COLUMNS) {
-                    Integer value = parseInt(cols[indexByName.get(feature)]);
-                    if (value == null) {
-                        valid = false;
-                        break;
-                    }
-                    row.put(feature, value);
-                }
-
-                if (valid) {
-                    model.observe(row, phishing);
-                }
+                loadedAny = true;
+                loadDataset(reader, model);
+            } catch (IOException e) {
+                System.err.println("[PhishingDataChecker] Warning: could not load "
+                    + source.fallbackFile + ": " + e.getMessage());
             }
+        }
 
-            model.finish();
-            return model;
-        } catch (IOException e) {
-            System.err.println("[PhishingDataChecker] Warning: could not load PhishingData.csv: " + e.getMessage());
+        if (!loadedAny) {
             return Model.unavailable();
+        }
+
+        model.finish();
+        return model.isReady() ? model : Model.unavailable();
+    }
+
+    private void loadDataset(BufferedReader reader, Model model) throws IOException {
+        String header = reader.readLine();
+        if (header == null) {
+            return;
+        }
+
+        String[] rawHeaders = header.split(",");
+        Map<String, Integer> indexByName = new HashMap<>();
+        for (int i = 0; i < rawHeaders.length; i++) {
+            indexByName.put(normalizeName(rawHeaders[i]), i);
+        }
+
+        for (String column : FEATURE_COLUMNS) {
+            if (!indexByName.containsKey(column)) {
+                return;
+            }
+        }
+        if (!indexByName.containsKey(COL_RESULT)) {
+            return;
+        }
+
+        String line;
+        while ((line = reader.readLine()) != null) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+
+            String[] cols = splitCsvLine(line, rawHeaders.length);
+            Integer result = parseInt(cols[indexByName.get(COL_RESULT)]);
+            if (result == null) {
+                continue;
+            }
+
+            boolean phishing = result == -1;
+            Map<String, Integer> row = new HashMap<>();
+            boolean valid = true;
+            for (String feature : FEATURE_COLUMNS) {
+                Integer value = parseInt(cols[indexByName.get(feature)]);
+                if (value == null) {
+                    valid = false;
+                    break;
+                }
+                row.put(feature, value);
+            }
+
+            if (valid) {
+                model.observe(row, phishing);
+            }
         }
     }
 
-    private BufferedReader openDatasetReader() throws IOException {
-        InputStream is = getClass().getResourceAsStream(RESOURCE_PATH);
+    private BufferedReader openDatasetReader(DatasetSource source) throws IOException {
+        InputStream is = getClass().getResourceAsStream(source.resourcePath);
         if (is != null) {
             return new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
         }
 
-        Path fallback = Path.of(FALLBACK_FILE);
+        Path fallback = Path.of(source.fallbackFile);
         if (Files.exists(fallback)) {
             return Files.newBufferedReader(fallback, StandardCharsets.UTF_8);
         }
@@ -237,6 +251,16 @@ public class PhishingDataChecker implements UrlChecker {
             return Integer.parseInt(raw.trim());
         } catch (Exception ignored) {
             return null;
+        }
+    }
+
+    private static final class DatasetSource {
+        private final String resourcePath;
+        private final String fallbackFile;
+
+        private DatasetSource(String resourcePath, String fallbackFile) {
+            this.resourcePath = resourcePath;
+            this.fallbackFile = fallbackFile;
         }
     }
 
