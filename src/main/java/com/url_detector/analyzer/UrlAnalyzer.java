@@ -14,6 +14,7 @@ public class UrlAnalyzer {
     public UrlAnalyzer() {
         this.checkers = List.of(
             new PhishingDataChecker(),
+            new UrisScamChecker(),
             new CsvMaliciousListChecker(),
             new HttpRedirectChecker(),
             new StructureChecker(),
@@ -21,6 +22,7 @@ public class UrlAnalyzer {
             new KeywordChecker(),
             new BlacklistChecker(),
             new TyposquatChecker(),
+            new UrlDatasetChecker(),
             new CsvSafeListChecker()
         );
     }

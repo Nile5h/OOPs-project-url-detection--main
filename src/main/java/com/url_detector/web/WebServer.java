@@ -76,7 +76,17 @@ public class WebServer {
     }
 
     private void handleHistory(HttpExchange exchange) throws IOException {
-        if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+        String method = exchange.getRequestMethod();
+        if ("DELETE".equalsIgnoreCase(method)) {
+            try {
+                repository.deleteAll();
+                sendJson(exchange, 200, "{\"status\":\"cleared\"}");
+            } catch (SQLException ex) {
+                sendJson(exchange, 500, "{\"error\":\"Failed to clear scan history\"}");
+            }
+            return;
+        }
+        if (!"GET".equalsIgnoreCase(method)) {
             sendJson(exchange, 405, "{\"error\":\"Method not allowed\"}");
             return;
         }

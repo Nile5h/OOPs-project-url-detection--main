@@ -1,6 +1,10 @@
 # Suspicious URL Detector
 
-A Java web application that analyzes URLs for phishing, malware, and other suspicious indicators. It combines multiple detection strategies — blacklists, CSV threat-intelligence datasets, structural analysis, keyword scanning, domain checks, and typosquatting detection — to produce a risk score and human-readable report for each URL.
+A Java URL threat-intelligence platform with two frontends:
+- Web frontend (served by the embedded HTTP server)
+- Desktop frontend (JavaFX)
+
+It analyzes URLs for phishing, malware, and scam indicators using an ensemble of blacklist checks, CSV intelligence feeds, structure/keyword/domain heuristics, typosquat detection, redirect probing, and Bayesian feature scoring.
 
 ---
 
@@ -22,9 +26,12 @@ A Java web application that analyzes URLs for phishing, malware, and other suspi
 ## Features
 
 - Professional web dashboard with URL analysis and live scan history
+- Desktop JavaFX application with matching visual theme and native dialogs
+- Unified launcher in `Main` for web or desktop mode
 - Frontend assets are fully local (no external CSS/font CDN dependency)
-- Nine independent checkers that each contribute a score
+- Eleven independent checkers that each contribute to the final risk score
 - SQLite-backed scan history with filtering by risk level
+- API endpoints: health, analyze, history (GET + DELETE)
 - Live redirect-chain checks with hop limits, loop detection, and private-target blocking
 - Fat JAR output (all dependencies bundled)
 
@@ -55,14 +62,42 @@ This compiles the code, runs tests, and produces a fat JAR at:
 
 ## How to Run
 
+### Web mode (default)
+
 ```bash
 java -jar target/url_detector-1.0-SNAPSHOT.jar
 ```
 
-Open `http://localhost:8080` in your browser. You can also pass a custom port, for example:
+Open `http://localhost:8080` in your browser.
+
+Custom port:
 
 ```bash
 java -jar target/url_detector-1.0-SNAPSHOT.jar 8091
+```
+
+Explicit web mode:
+
+```bash
+java -jar target/url_detector-1.0-SNAPSHOT.jar --web 8091
+```
+
+### Desktop mode (JavaFX)
+
+```bash
+java -jar target/url_detector-1.0-SNAPSHOT.jar --desktop
+```
+
+Or via JavaFX plugin during development:
+
+```bash
+mvn javafx:run
+```
+
+### Help
+
+```bash
+java -jar target/url_detector-1.0-SNAPSHOT.jar --help
 ```
 
 The application creates `url_detector.db` in the working directory on first launch to store scan history.
@@ -76,7 +111,17 @@ The application creates `url_detector.db` in the working directory on first laun
 ├── pom.xml
 └── src/main/
     ├── java/com/url_detector/
-    │   ├── Main.java                        ← Entry point
+    │   ├── Main.java                        ← Unified launcher (web/desktop)
+    │   ├── desktop/
+    │   │   ├── DesktopApp.java              ← JavaFX desktop UI
+    │   │   ├── DesktopLauncher.java         ← Desktop-only launcher helper
+    │   │   ├── model/
+    │   │   │   ├── AnalyzeResponse.java
+    │   │   │   ├── HealthResponse.java
+    │   │   │   ├── HistoryRecord.java
+    │   │   │   └── HistoryResponse.java
+    │   │   └── service/
+    │   │       └── ApiClient.java           ← HTTP client for backend endpoints
     │   ├── analyzer/
     │   │   └── UrlAnalyzer.java             ← Orchestrates all checkers
     │   ├── app/
@@ -93,6 +138,8 @@ The application creates `url_detector.db` in the working directory on first laun
     │   │   ├── PhishingDataChecker.java     ← Naive-Bayes signal from PhishingData.csv
     │   │   ├── StructureChecker.java        ← URL structure anomalies
     │   │   └── TyposquatChecker.java        ← Levenshtein distance vs popular domains
+    │   │   ├── UrlDatasetChecker.java       ← Allowlist/risk reduction from url_dataset.csv
+    │   │   └── UrisScamChecker.java         ← Scam/phishing feed from uris.csv
     │   ├── db/
     │   │   ├── DatabaseManager.java         ← SQLite connection + schema creation
     │   │   ├── ScanHistoryRepository.java   ← CRUD for scan_history table
@@ -110,16 +157,18 @@ The application creates `url_detector.db` in the working directory on first laun
     │       ├── RedirectProbeUtil.java       ← Safe bounded redirect probe utility
     │       └── UrlNormalizationUtil.java    ← URL/host key normalization
     └── resources/
+        ├── desktop-style.css                ← JavaFX desktop stylesheet
         └── static/
             ├── index.html                   ← Web dashboard UI
             └── assets/
                 ├── styles.css               ← Dashboard styling
                 └── app.js                   ← Frontend behavior and API calls
         ├── blacklist.txt                    ← Known malicious domains
-        ├── malicious_phish.csv              ← Phishing/malware URL dataset
+        ├── PhishingData.csv                 ← Feature dataset used by PhishingDataChecker
+        ├── PhisingData.csv                  ← Additional phishing feature dataset
         ├── popular_domains.txt              ← Top domains for typosquat comparison
-        └── safe_sites_df.csv                ← Allowlisted safe domains
-    └── PhishingData.csv                         ← Feature dataset used by PhishingDataChecker
+        ├── uris.csv                         ← Scam/phishing intelligence feed
+        └── url_dataset.csv                  ← Legitimate URL dataset used for risk reduction
 ```
 
 ---
@@ -129,7 +178,31 @@ The application creates `url_detector.db` in the working directory on first laun
 ### Entry Point
 
 **`Main.java`**
-The application entry point. Starts the embedded HTTP server and serves the web dashboard and REST API.
+The unified application entry point.
+- Default: starts web mode on port 8080
+- `--web [port]`: explicit web mode
+- `--desktop`: starts JavaFX desktop mode
+- `--help`: prints launcher usage
+
+---
+
+### `desktop/`
+
+**`DesktopApp.java`**
+JavaFX desktop client that mirrors the web frontend sections (Overview, Analyze, History, Features), polls health status, supports dark/light themes, and calls existing backend APIs.
+
+**`DesktopLauncher.java`**
+Desktop launch helper class for JavaFX-specific startup wiring.
+
+**`desktop/service/ApiClient.java`**
+HTTP client used by desktop UI to call:
+- `/api/health`
+- `/api/analyze`
+- `/api/history` (GET)
+- `/api/history` (DELETE)
+
+**`desktop/model/*`**
+DTO models for mapping JSON API responses in desktop mode.
 
 ---
 
@@ -177,7 +250,7 @@ Performs live redirect-chain analysis using a bounded probe. Flags suspicious re
 Scans the full raw URL string for ~40 phishing-related keywords (`login`, `verify`, `password`, `bitcoin`, `suspended`, etc.). Scores **+10 per keyword**, capped at **+30** total.
 
 **`PhishingDataChecker.java`**
-Loads `PhishingData.csv` and trains a lightweight Naive-Bayes model over URL-derivable features (IP host, URL length band, shortener usage, `@`, double-slash redirect pattern, hyphenated host, subdomain depth, port anomalies, and `https` token in host). Adds or subtracts score based on predicted phishing probability.
+Loads `PhishingData.csv` and `PhisingData.csv`, then trains a lightweight Naive-Bayes model over URL-derivable features (IP host, URL length band, shortener usage, `@`, double-slash redirect pattern, hyphenated host, subdomain depth, port anomalies, and `https` token in host). Adds or subtracts score based on predicted phishing probability.
 
 **`StructureChecker.java`**
 Detects structural anomalies:
@@ -192,6 +265,12 @@ Detects structural anomalies:
 
 **`TyposquatChecker.java`**
 Loads `popular_domains.txt` and computes the Levenshtein edit distance between the URL's registrable domain and every popular domain. Distance of 1 → **+40** (stops checking). Distance of 2 → **+20** (continues in case a distance-1 match follows).
+
+**`UrlDatasetChecker.java`**
+Loads `url_dataset.csv` as a legitimate-domain reference set and applies negative scoring on host/domain matches to reduce false positives.
+
+**`UrisScamChecker.java`**
+Loads `uris.csv` (scam/phishing threat feed) and applies high-confidence positive scores for exact URL or host matches.
 
 ---
 
@@ -264,6 +343,7 @@ A thin facade used by API handlers. Wraps `UrlParser` + `UrlAnalyzer` and expose
 Embedded HTTP server that:
 - serves static files from `src/main/resources/static`
 - exposes `/api/health`, `/api/analyze`, and `/api/history`
+- supports `DELETE /api/history` to clear scan history
 - saves scans to SQLite via `ScanHistoryRepository`
 
 ---
@@ -289,10 +369,14 @@ Utility class (no instances) with three static helpers:
 | File | Purpose |
 |------|---------|
 | `blacklist.txt` | One domain per line. Domains matched here score +100 instantly. Lines starting with `#` are comments. |
-| `malicious_phish.csv` | Two-column CSV (`url,type`). Rows with type `benign` are ignored. Phishing/malware rows populate the malicious URL and host sets. |
+| `PhishingData.csv` | Feature dataset used by `PhishingDataChecker` for Bayesian phishing-likelihood scoring. |
+| `PhisingData.csv` | Additional phishing feature dataset loaded by `PhishingDataChecker`. |
 | `popular_domains.txt` | One domain per line. Used by `TyposquatChecker` for edit-distance comparison. |
-| `safe_sites_df.csv` | Two-column CSV (`domain,category`). Matched domains receive a negative score adjustment to reduce false positives. |
-| `PhishingData.csv` | UCI-style feature dataset used by `PhishingDataChecker` for Naive-Bayes phishing likelihood scoring. |
+| `url_dataset.csv` | Legitimate URL/domain set used for risk reduction in `UrlDatasetChecker`. |
+| `uris.csv` | Scam/phishing threat-intelligence feed used by `UrisScamChecker`. |
+| `desktop-style.css` | JavaFX stylesheet for the desktop application. |
+| `malicious_phish.csv` | Optional legacy malicious feed used by `CsvMaliciousListChecker` when bundled at runtime. |
+| `safe_sites_df.csv` | Optional legacy safe-domain feed used by `CsvSafeListChecker` when bundled at runtime. |
 
 Files under `src/main/resources` are bundled inside the JAR under the classpath root and loaded via `getClass().getResourceAsStream(...)`.
 `PhishingData.csv` is also supported from the project root as a runtime fallback.
@@ -307,6 +391,10 @@ Defined in `pom.xml`:
 |------------|---------|---------|
 | `org.xerial:sqlite-jdbc` | 3.46.0.0 | SQLite JDBC driver — enables the embedded database for scan history without requiring an external database server |
 | `org.slf4j:slf4j-simple` | 1.7.36 | Simple SLF4J logging backend — required by the SQLite JDBC driver to suppress "no SLF4J provider" warnings at runtime |
+| `com.fasterxml.jackson.core:jackson-databind` | 2.17.2 | JSON mapping for desktop API client responses |
+| `org.openjfx:javafx-controls` | 17.0.11 | JavaFX desktop UI controls |
+| `org.openjfx:javafx-graphics` | 17.0.11 | JavaFX rendering/runtime |
+| `org.openjfx:javafx-base` | 17.0.11 | JavaFX base classes |
 
 ### Build Plugins
 
@@ -314,8 +402,9 @@ Defined in `pom.xml`:
 |--------|---------|---------|
 | `maven-jar-plugin` | 3.3.0 | Sets `com.url_detector.Main` as the JAR manifest main class |
 | `maven-shade-plugin` | 3.5.0 | Packages all dependencies into a single fat JAR so the application can be run with `java -jar` without a separate classpath |
+| `javafx-maven-plugin` | 0.0.8 | Allows local desktop execution with `mvn javafx:run` |
 
-The project uses only the Java standard library beyond these two runtime dependencies — no external HTTP clients, no ML frameworks, no third-party UI toolkits.
+The project uses Java standard library components plus the dependencies listed above. HTTP client calls in desktop mode use Java's built-in `java.net.http` package.
 
 ---
 
